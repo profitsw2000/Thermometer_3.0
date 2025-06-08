@@ -43,6 +43,7 @@ uint8_t local_id[MAX_DEVICES]	;
 unsigned char crcFlag = 0;
 unsigned char sensors_num = 0;
 unsigned int temperature[MAX_DEVICES]	;
+unsigned int brightness_array[16]	;
 unsigned char brightness_l, brightness_h	;
 unsigned char temp	;
 uint8_t current_time[5]	;
@@ -193,7 +194,7 @@ void Parse_UART(void)
 				NumMass = buf_pkt[1] = USART_GetChar()	;
 				summ += buf_pkt[1]	;
 				sost_pkt = 3	;
-				if (NumMass > 0x10) sost_pkt = 0	;
+				if (NumMass > 0x20) sost_pkt = 0	;
 			break;
 			
 			default:
@@ -264,6 +265,17 @@ void RS_Decode(uint8_t *data, uint8_t comand, uint8_t SizePkt)
 		//записать во внутреннюю пам€ть eeprom код символа дл€ вывода на 16-сегментный индикатор
 		case 8:
 			WriteLetterCodeToMemory(data, local_id)	;
+		break;
+
+		//отправить пакет с данными, содержащими измеренную температуру всех датчиков, их идентификационный номер,
+		//и ассоциированные с ними коды символов
+		case 9:
+			SendSensorsTemperature(sensors_num, temperature, local_id, allDevices)	;
+		break;
+
+		//отправить пакет с данными, содержащими значение €ркости
+		case 10:
+			SendBrightnessValue(brightness_l, brightness_h)	;
 		break;
 		
 		default:

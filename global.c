@@ -221,7 +221,7 @@ void ID_Registration(unsigned char sensors_num, unsigned char crcFlag, uint8_t *
 void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 {
 	unsigned char templ, temph	;
-	uint32_t voltage, rtd_vlt	;
+	uint32_t rtd_vlt, voltage	;
 	
 	templ = ADCSRA	;
 	templ |= (1<<ADSC)	;
@@ -232,6 +232,7 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	voltage = temph	;
 	voltage = voltage << 8	;
 	voltage |= templ	;
+	
 	if (voltage > 280)
 	{
 		if (voltage > 980)
@@ -662,4 +663,103 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 
 	 address = 136 + (local_id[number] - 1)*2	;
 	 Write_reserved_string_mega_eeprom(address, letter, 2)	;
+ }
+ 
+ //отправить текущую температуру с информацией о датчике (идентификационный номер, код символа, св€занного с ним)
+ //дл€ всех датчиков
+ //формат принимаемого пакета данных:
+ // |S|...|Pkt_Size|...|Pkt_number|...|D0|...|D1|...|Summ|
+ // |S| = 0x53 - стартовый байт; |Pkt_Size| - общее количество байт в пакете; |Pkt_number| = 9 - идентификационный номер пакета;
+ // |D0|, |D1| - пустые данные
+ // |Summ| - контрольна€ сумма.
+ //формат отправл€емого пакета данных:
+ // |S|...|Pkt_Size|...|Pkt_number|...|Sensors_number|...|Sensor0_id_8|...___...|Sensor0_id_0|...|Sensor0_Letter_1|...
+ // ...|Sensor0_Letter_0|...|Sensor0_Temperature_1|...|Sensor0_Temperature0|...___...|SensorN_id_8|...___...|SensorN_id_0|...|SensorN_Letter_1|...
+ // ...|SensorN_Letter_0|...|SensorN_Temperature_1|...|SensorN_Temperature0|...|Summ|
+ // |S| = 0x53 - стартовый байт; |Pkt_Size| - общее количество байт в пакете; |Pkt_number| = 9 - идентификационный номер пакета;
+ // |Sensors_number| - общее количество датчиков на линии
+ // |SensorN_id_N| - N-ый байт идентификационного номера N-го датчика,
+ // |SensorN_Letter_1|...|SensorN_Letter_0| - код символа, ассоциированного с датчиком N,
+ // |SensorN_Temperature_1|...|SensorN_Temperature0| - два байта с текущей температурой, измеренных N-ым датчиком
+ // |Summ| - контрольна€ сумма пакета.
+ void SendSensorsTemperature(unsigned char sensors_num, unsigned int * temperature, uint8_t * local_id, OWI_device * allDevices)
+ {
+	 //объ€вление буффера, куда складываютс€ данные дл€ отправки по ”ј–“
+	 //размер буффера будет зависеть от количества датчиков на линии
+	 uint8_t buffer_size = 5 + sensors_num*(SENSOR_INFO_SIZE)	;
+	 uint8_t output_buf[buffer_size]	;
+	 uint16_t address, temp	;
+	 uint8_t letter[2]	;
+	 uint8_t templ	;
+	 uint8_t temph	;
+	 uint8_t summa = 0	;
+	 
+	 output_buf[0] = 0x53	;
+	 output_buf[1] = buffer_size - 1	;
+	 output_buf[2] = 9	;
+	 output_buf[3] = sensors_num	;
+	 
+	 //заполнение пакета данными датчиков - id, код символа и текуща€ темппература, измеренна€ датчиком
+	 for(uint8_t i = 0; i < sensors_num; i++) {
+		 uint8_t index = 4 + SENSOR_INFO_SIZE*i	;
+		 
+		 address = 136 + (local_id[i] - 1)*2	;
+		 Read_reserved_string_mega_eeprom(address, letter, 2)	;
+		 
+		 temp = temperature[i]	;
+		 templ = temp	;
+		 temph = temp>>8	;
+		 
+		 ////id датчика
+		 for(uint8_t j = 0; j < SENSOR_ID_SIZE; j++) {
+			output_buf[index] = allDevices[i].id[j]	;
+			index++	;
+		 }
+		 
+		 //код символа		 
+		 output_buf[index++] = letter[1]	;
+		 output_buf[index++] = letter[0]	;
+		 
+		 //температура		 
+		 output_buf[index++] = temph	;
+		 output_buf[index++] = templ	;		   
+	 }	 
+	 //
+	 ////вычисление контрольной суммы
+	 for(uint8_t i = 1; i < (buffer_size - 1); i++) {
+		summa = summa + output_buf[i]	;
+	 }
+	 output_buf[buffer_size - 1] = summa	;
+	 
+	 USART_SendArray(output_buf, buffer_size)	;
+ }
+ 
+ 
+ //отправить текущее значение €ркости 
+ //формат принимаемого пакета данных:
+ // |S|...|Pkt_Size|...|Pkt_number|...|D0|...|D1|...|Summ|
+ // |S| = 0x53 - стартовый байт; |Pkt_Size| - общее количество байт в пакете; |Pkt_number| = 10 - идентификационный номер пакета;
+ // |D0|, |D1| - пустые данные
+ // |Summ| - контрольна€ сумма.
+ //формат отправл€емого пакета данных:
+ // |S|...|Pkt_Size|...|Pkt_number|...|Brightness_H|...|Brightness_L|...|Summ|
+ // |S| = 0x53 - стартовый байт; |Pkt_Size| - общее количество байт в пакете; |Pkt_number| = 10 - идентификационный номер пакета;
+ // Brightness_H - старший байт значени€ €ркости, Brightness_L - младший байт значени€ €ркости.
+ void SendBrightnessValue(uint8_t brightness_l, uint8_t brightness_h) {
+	 
+	 uint8_t output_buf[6]	;
+	 uint8_t summa = 0	;
+	 
+	 output_buf[0] = 0x53	;
+	 output_buf[1] = 0x5	;
+	 summa = 0x5	;
+	 output_buf[2] = 0xA	;
+	 summa += output_buf[2]	;
+	 output_buf[3] = brightness_h	;
+	 summa += output_buf[3]	;
+	 output_buf[4] = brightness_l	;
+	 summa += output_buf[4]	;
+	 output_buf[5] = summa	;
+	 
+	 USART_SendArray(output_buf, 6)	;
  }

@@ -42,6 +42,13 @@
 #define SEARCH_SENSORS 0x00
 #define SENSORS_FOUND 0xff
 
+#define SENSOR_ID_SIZE 8
+#define TEMPERATURE_VALUE_SIZE 2
+#define LETTER_CODE_SIZE 2
+#define SENSOR_INFO_SIZE (SENSOR_ID_SIZE + LETTER_CODE_SIZE + TEMPERATURE_VALUE_SIZE)
+
+#define BRIGHTNESS_ARRAY_SIZE 16
+
 //прототипы функций
 void Init_peripheral(void)	;
 void Timer1_Init(void)	;
@@ -62,5 +69,7 @@ void Send25AA1024Bytes(uint8_t SizePkt, uint8_t *data)	;
 void SendCurrentAddress(void)	;
 void ReadAllTelemetry(void)	;
 void WriteLetterCodeToMemory(uint8_t *data, uint8_t * local_id)	;
+void SendSensorsTemperature(unsigned char sensors_num, unsigned int *temperature, uint8_t *local_id, OWI_device *allDevices)	;
+void SendBrightnessValue(uint8_t brightness_l, uint8_t brightness_h)	;
 
 #endif //GLOBAL_H

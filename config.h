@@ -29,7 +29,7 @@
 #define BUS   OWI_PIN_7
 
 //количество устройств на шине 1Wire
-#define MAX_DEVICES       0x09
+#define MAX_DEVICES       0x07
 
 
 #endif //CONFIG_H
