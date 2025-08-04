@@ -222,34 +222,34 @@ void RS_Decode(uint8_t *data, uint8_t comand, uint8_t SizePkt)
 		break;
 
 		//считать время и отправить по УАРТ
-		case 1:
+		case 0x01:
 			SendTime(SizePkt, comand)	;
 		break;
 
 		//записать время, полученное по UART
-		case 2:
+		case 0x02:
 			WriteTime(SizePkt, data)	;
 		break;
 
 		//считать байты из внутренней памяти eeprom в количестве менее 8 по указанному адресу,
 		//сформировать посылку и отправить её по уарт
-		case 3:
+		case 0x03:
 			SendEEPROMBytes(SizePkt, data)	;
 		break;
 		
 		//считать байты из внешней памяти eeprom в количестве менее 8 по указанному адресу,
 		//сформировать посылку и отправить её по уарт
-		case 4:
+		case 0x04:
 			Send25AA1024Bytes(SizePkt, data)	;
 		break;
 		
 		//считать текущий адрес внешней eeprom (адрес записывается в память контроллера)
-		case 5:
+		case 0x05:
 			SendCurrentAddress()	;
 		break;
 		
 		//считать и отправить пакетами всю записанную во внешней памяти телеметрию
-		case 6:
+		case 0x06:
 			ReadAllTelemetry()	;
 		break;
 
@@ -258,24 +258,28 @@ void RS_Decode(uint8_t *data, uint8_t comand, uint8_t SizePkt)
 		// |S|...|Pkt_Size|...|Pkt_number|...|Address_0|...___...|Address_3|...|Summ|
 		// |S| = 0x53 - стартовый байт; |Pkt_Size| - общее количество байт в пакете; |Pkt_number| = 7 - идентификационный номер пакета;
 		// |Summ| - контрольная сумма; |Address_3|...___...|Address_0| - четыре байта адреса.
-		case 7:
+		case 0x07:
 			Write_reserved_string_mega_eeprom(2, data, 4)	;
 		break;
 		
 		//записать во внутреннюю память eeprom код символа для вывода на 16-сегментный индикатор
-		case 8:
+		case 0x08:
 			WriteLetterCodeToMemory(data, local_id)	;
 		break;
 
 		//отправить пакет с данными, содержащими измеренную температуру всех датчиков, их идентификационный номер,
 		//и ассоциированные с ними коды символов
-		case 9:
+		case 0x09:
 			SendSensorsTemperature(sensors_num, temperature, local_id, allDevices)	;
 		break;
 
 		//отправить пакет с данными, содержащими значение яркости
-		case 10:
+		case 0x0A:
 			SendBrightnessValue(brightness_l, brightness_h)	;
+		break;
+		
+		case 0x0B:
+			ReadFullTelemetryByPackets(data)	;
 		break;
 		
 		default:
