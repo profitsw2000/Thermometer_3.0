@@ -701,24 +701,28 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 		case 0x01:
 			SendServiceData()	;
 			break;
-		case 0x02:
-			SendStartPacket()	;
+		case 0x02:		
+			//обнуление переменной, содержащей адрес внешней EEPROM, с которого будут считываться данные для отправки
+			send_address = 0	;
+			SendDataPacket(0x02);
 			break;
 		
 		case 0x03:
-			SendBrightnessValue(0xAA, 0xBB)	;		
+			send_address += 8	;
+			SendDataPacket(0x02)	;		
 			break;
 		
 		case 0x04:
-			SendBrightnessValue(0xAA, 0xBB)	;		
+			SendDataPacket(0x02)	;	
 			break;
 		
 		case 0x05:
-			SendBrightnessValue(0xAA, 0xBB)	;		
+			send_address += 8	;
+			CheckAllDataSended()	;	
 			break;			
 		
 		case 0x06:
-			SendBrightnessValue(0xAA, 0xBB)	;		
+			send_address = 0	;		
 			break;
 			
 		default:
@@ -758,8 +762,8 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 		output[1] = packet_size	;
 		check_sum += packet_size	;
 		
-		output[2] = 0x06	;
-		check_sum += 0x06	;
+		output[2] = 0x0B	;
+		check_sum += 0x0B	;
 		
 		output[3] = 0x01	;
 		check_sum += 0x01	;
@@ -803,12 +807,9 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
  }
  
  //отправка первого пакета с данными, считанными из внешней памяти EEPROM
- void SendStartPacket(void) {
+ void SendDataPacket(unsigned char type) {
 	uint8_t buf[12], output_buf[13]	;
 	uint8_t summa	;	
-	
-	//обнуление переменной, содержащей адрес внешней EEPROM, с которого будут считываться данные для отправки
-	send_address = 0	;
 	
 	Read_string_ext_eeprom(send_address, buf, 8)	;
 	//ответный пакет для отправки по UART
@@ -817,7 +818,7 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	summa = output_buf[1]	;
 	output_buf[2] = 0x0B	;
 	summa += output_buf[2]	;
-	output_buf[3] = 0x02	;
+	output_buf[3] = type	;
 	summa += output_buf[3]	;
 	
 	//нужные данные содержатся в массиве buf начиная с индекса 4
@@ -829,7 +830,39 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	output_buf[12] = summa	;
 	USART_SendArray(output_buf, 13)	;
  }
-	 
+ 
+ //Сравнить адрес в памяти для отправления данных (переменная send_address) и текущий адрес внешней EEPROM для записи телеметрии, 
+ //и если текущий адрес для записи в память больше, чем адрес в памяти для отправления, то ещё не все данные из внешней памяти отправлены и
+ //необходимо отправить ещё один пакет данных
+ void CheckAllDataSended(void) {
+	uint32_t current_address	;
+	unsigned char address[4]	;
+	uint8_t read_status	;
+	unsigned char output[5]	;
+	unsigned char check_sum = 0	;
+	
+	//считывание текущего адреса внешней EEPROM
+	read_status = Read_reserved_string_mega_eeprom(2, address, 4)	;
+	if(read_status) {
+		Convert4_to_1(address, &current_address)	;
+		if (current_address > send_address){
+			SendDataPacket(0x03)	;
+		} else {
+			output[0] = 0x53	;
+			output[1] = 0x04	;
+			check_sum += 0x04	;
+			
+			output[2] = 0x0B	;
+			check_sum += 0x0B	;
+			
+			output[3] = 0x04	;
+			check_sum += 0x04	;
+			
+			output[4] = check_sum	;
+			USART_SendArray(output, 5)	;
+		}
+	}	
+ }
   
  //записать во внутреннюю память eeprom код (2 байта) символа для вывода на 16-сегментный индикатор
  //адрес, по которому  записывается код вычисляется по номеру отображаемого на индикаторах датчика
