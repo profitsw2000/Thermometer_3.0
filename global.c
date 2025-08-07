@@ -655,12 +655,10 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
  // |Pkt_Size| - общее количество байт в пакете;
  // |Pkt_number| = 0x0B - идентификационный номер пакета;
  // |Type| - тип пакета, ожидаемого приёмником;
- // - 0x01 - начать отправку записанных в памяти данных передачей служебных данных;
- // - 0х02 - приёмник подтверждает приём служебных данных, необходимо отправить первые 8 байт данных из памяти с адреса 0;
- // - 0х03 - передать следующие 8 байт данных из памяти (увеличить счетчик адреса на 8 и передать следующие 8 байт данных из памяти) ;
- // - 0х04 - повторить передачу 8 байт данных из памяти (счетчик адреса не изменять);
- // - 0х05 - приёмник принял все пакеты, которые планировалось принять (количество передаваемых пакетов содержалось в служебных данных);
- // - 0х06 - прервать передачу данных и обнулить счётик адреса;
+ // - 0x01 - начать отправку записанных в памяти данных передачей служебных данных и обнулить счетчик адреса в памяти для считывания и отправки;
+ // - 0х02 - передать 8 байт данных из памяти не изменяя текущего значения счетчика;
+ // - 0х03 - передать следующие 8 байт данных из памяти (перед считыванием данных увеличить счетчик на 8, считанные данные передать по УАРТ);
+ // - 0х04 - прервать передачу данных и обнулить счётик адреса;
  // |Summ| - контрольная сумма.
  // формат отправляемого пакета данных(SEND):
  // |S|...|Pkt_Size|...|Pkt_number|...|Type|...|Depend on type|...|Summ|
@@ -685,13 +683,8 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
  // - 0х02 - передача 8 байт данных;
  //   |Depend on type| = |D0|...|D1|...___...|Dn|
  //   -- |D0|,|D1|,...,|Dn| - 8 байт данных, где D0 считано с адреса, кратного 8 (или с адреса 0), а Dn - с адреса, кратного n;
- // - 0х03 - отправка дополнительных данных:
- //			приёмник получил все данные, что планировал, но у передатчика остались ещё данные для отправки и он их отправляет.
- //          Такая ситуация может произойти, если в процессе передачи данных произошла очередная запись времени и температуры в память
- //			 и текущий адрес внешней памяти EEPROM отличается от счетчика адреса передаваемых данных;
- //   |Depend on type| = |D0|...|D1|...___...|Dn|
- //   -- |D0|,|D1|,...,|Dn| - 8 байт данных, где D0 считано с адреса, кратного 8 (или с адреса 0), а Dn - с адреса, кратного n;
- // - 0х04 - приёмник передал все данные;
+ // - 0х03 - приёмник передал все данные, то есть счётчик указателя памяти на данные для считывания и передачи по УАРТ стал равен текущему адресу, по
+ // которому будет записана следующая порция данных времени и температуры или сам приёмник прервал передачу данных;
  //   |Depend on type| = Nothing;
  // |Summ| - контрольная сумма.
  void ReadFullTelemetryByPackets(uint8_t *data) {
@@ -699,30 +692,21 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 
 	 switch(packet_type) {
 		case 0x01:
-			SendServiceData()	;
-			break;
-		case 0x02:		
 			//обнуление переменной, содержащей адрес внешней EEPROM, с которого будут считываться данные для отправки
 			send_address = 0	;
-			SendDataPacket(0x02);
+			SendServiceData()	;
+			break;
+			
+		case 0x02:		
+			SendDataPacket();
 			break;
 		
 		case 0x03:
-			send_address += 8	;
-			SendDataPacket(0x02)	;		
+			SendNextDataPacket()	;	
 			break;
 		
 		case 0x04:
-			SendDataPacket(0x02)	;	
-			break;
-		
-		case 0x05:
-			send_address += 8	;
-			CheckAllDataSended()	;	
-			break;			
-		
-		case 0x06:
-			send_address = 0	;		
+			StopDataTransfer()	;	
 			break;
 			
 		default:
@@ -806,8 +790,8 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 }	 
  }
  
- //отправка первого пакета с данными, считанными из внешней памяти EEPROM
- void SendDataPacket(unsigned char type) {
+ //отправка пакета с данными, считанными из внешней памяти EEPROM
+ void SendDataPacket(void) {
 	uint8_t buf[12], output_buf[13]	;
 	uint8_t summa	;	
 	
@@ -818,7 +802,7 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	summa = output_buf[1]	;
 	output_buf[2] = 0x0B	;
 	summa += output_buf[2]	;
-	output_buf[3] = type	;
+	output_buf[3] = 0x02	;
 	summa += output_buf[3]	;
 	
 	//нужные данные содержатся в массиве buf начиная с индекса 4
@@ -831,37 +815,46 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	USART_SendArray(output_buf, 13)	;
  }
  
- //Сравнить адрес в памяти для отправления данных (переменная send_address) и текущий адрес внешней EEPROM для записи телеметрии, 
- //и если текущий адрес для записи в память больше, чем адрес в памяти для отправления, то ещё не все данные из внешней памяти отправлены и
- //необходимо отправить ещё один пакет данных
- void CheckAllDataSended(void) {
-	uint32_t current_address	;
-	unsigned char address[4]	;
-	uint8_t read_status	;
-	unsigned char output[5]	;
-	unsigned char check_sum = 0	;
-	
-	//считывание текущего адреса внешней EEPROM
-	read_status = Read_reserved_string_mega_eeprom(2, address, 4)	;
-	if(read_status) {
-		Convert4_to_1(address, &current_address)	;
-		if (current_address > send_address){
-			SendDataPacket(0x03)	;
-		} else {
-			output[0] = 0x53	;
-			output[1] = 0x04	;
-			check_sum += 0x04	;
-			
-			output[2] = 0x0B	;
-			check_sum += 0x0B	;
-			
-			output[3] = 0x04	;
-			check_sum += 0x04	;
-			
-			output[4] = check_sum	;
-			USART_SendArray(output, 5)	;
-		}
-	}	
+ //Отправить следующий пакет, увеличив счетчик адреса считываемых данных на 8 и сравнить его с текущим адресом внешней EEPROM для записи телеметрии,
+ //и если текущий адрес для записи в память больше, чем адрес в памяти для отправления, начать передачу, в противном случае отправить пакет с информацией 
+ //о том, что все данные переданы
+ void SendNextDataPacket(void) {
+	 uint32_t current_address	;
+	 unsigned char address[4]	;
+	 uint8_t read_status	;
+	 
+	 //увеличить счётчик адреса считывания данных
+	 send_address += 8	;
+	 
+	 //считывание текущего адреса внешней EEPROM для записи телеметрии
+	 read_status = Read_reserved_string_mega_eeprom(2, address, 4)	;
+	 if(read_status) {
+		 Convert4_to_1(address, &current_address)	;
+		 if (current_address > send_address){
+			 SendDataPacket()	;
+		 } else {
+			 StopDataTransfer()	;
+		 }
+	 }
+ }
+ 
+ //Пакет с информацией о том, что все данные считаны и передача данных будет прекращена
+ void StopDataTransfer(void) {	 
+	 unsigned char output[5]	;
+	 unsigned char check_sum = 0	;
+	 
+	 output[0] = 0x53	;
+	 output[1] = 0x04	;
+	 check_sum += 0x04	;
+	 
+	 output[2] = 0x0B	;
+	 check_sum += 0x0B	;
+	 
+	 output[3] = 0x03	;
+	 check_sum += 0x03	;
+	 
+	 output[4] = check_sum	;
+	 USART_SendArray(output, 5)	;
  }
   
  //записать во внутреннюю память eeprom код (2 байта) символа для вывода на 16-сегментный индикатор
