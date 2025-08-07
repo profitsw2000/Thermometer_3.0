@@ -924,7 +924,7 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 		 
 		 ////id датчика
 		 for(uint8_t j = 0; j < SENSOR_ID_SIZE; j++) {
-			output_buf[index] = allDevices[i].id[j]	;
+			output_buf[index] = allDevices[i].id[7 - j]	;
 			index++	;
 		 }
 		 
@@ -944,6 +944,65 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 output_buf[buffer_size - 1] = summa	;
 	 
 	 USART_SendArray(output_buf, buffer_size)	;
+ }
+ 
+ //отправить текущую температуру с информацией о датчике (идентификационный номер, код символа, локальный id, температура)
+ //для i-го датчика (порядковый номер в массиве - передаётся параметром в функцию)
+ //формат принимаемого пакета данных:
+ // |S|...|Pkt_Size|...|Pkt_number|...|Index|...|Summ|
+ // |S| = 0x53 - стартовый байт; |Pkt_Size| - общее количество байт в пакете; |Pkt_number| = 9 - идентификационный номер пакета;
+ // |Index| - индекс в массивах с температурой, массиве с локальным id, массиве с заводскими id.
+ // |Summ| - контрольная сумма.
+ //формат отправляемого пакета данных:
+ // |S|...|Pkt_Size|...|Pkt_number|...|Sensor_local_id|...|Sensor_id_8|...___...|Sensor_id_0|...|Sensor_Letter_1|...
+ // ...|Sensor_Letter_0|...|Sensor_Temperature_1|...|Sensor_Temperature0|...|Summ|
+ // |S| = 0x53 - стартовый байт; |Pkt_Size| - общее количество байт в пакете; |Pkt_number| = 0x0C - идентификационный номер пакета;
+ // |Sensor_local_id| - локальный id датчика;
+ // |Sensor_id_N| - N-ый байт идентификационного номера датчика,
+ // |Sensor_Letter_1|...|Sensor_Letter_0| - код символа, ассоциированного с датчиком,
+ // |Sensor_Temperature_1|...|Sensor_Temperature0| - два байта с текущей температурой, измеренной датчиком
+ // |Summ| - контрольная сумма пакета.
+ void SendSensorInfo(uint8_t *data, unsigned char sensors_num, unsigned int * temperature, uint8_t * local_id, OWI_device * allDevices) {
+	  //объявление буффера, куда складываются данные для отправки по УАРТ
+	  uint8_t buffer_size = 17	;
+	  uint8_t output_buf[buffer_size]	;
+	  uint8_t sensor_index = *data	;
+	  uint16_t address, temp	;
+	  uint8_t letter[2]	;
+	  uint8_t templ	;
+	  uint8_t temph	;
+	  uint8_t summa = 0	;
+	  
+	  if(sensor_index < sensors_num) {
+			//заголовок пакета
+			output_buf[0] = 0x53	;
+			output_buf[1] = buffer_size - 1	;
+			output_buf[2] = 0x0C	;
+			//локальный id
+			output_buf[3] = local_id[sensor_index]	;
+			////id датчика
+			for(uint8_t j = 0; j < SENSOR_ID_SIZE; j++) {
+				output_buf[4 + j] = allDevices[sensor_index].id[7 - j]	;
+			}
+			//код буквы, ассоциированной с датчиком
+			address = 136 + (local_id[sensor_index] - 1)*2	;
+			Read_reserved_string_mega_eeprom(address, letter, 2)	;
+			output_buf[12] = letter[1]	;
+			output_buf[13] = letter[0]	;
+			//температура
+			temp = temperature[sensor_index]	;
+			templ = temp	;
+			temph = temp>>8	;
+			output_buf[14] = temph	;
+			output_buf[15] = templ	;
+			//вычисление контрольной суммы
+			for(uint8_t i = 1; i < (buffer_size - 1); i++) {
+				summa = summa + output_buf[i]	;
+			}
+			output_buf[buffer_size - 1] = summa	;
+			//отправка по УАРТ
+			USART_SendArray(output_buf, buffer_size)	;
+	  }
  }
  
  

@@ -278,8 +278,14 @@ void RS_Decode(uint8_t *data, uint8_t comand, uint8_t SizePkt)
 			SendBrightnessValue(brightness_l, brightness_h)	;
 		break;
 		
+		//Чтение телеметрии пакетами - отправить очередной пакет с данными
 		case 0x0B:
 			ReadFullTelemetryByPackets(data)	;
+		break;
+		
+		//Отправить пакет с данными i-го датчика (индекс из массива содержится в теле пакета) - локальный id, заводской id, код буквы и температуры
+		case 0x0C:
+			SendSensorInfo(data, sensors_num, temperature, local_id, allDevices)	;
 		break;
 		
 		default:
