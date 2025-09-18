@@ -252,18 +252,12 @@ void Change_digit(unsigned char sensors_num)
 	
 	//моргание светодиодом при критическом заполнении памяти и индикация включении кнопки.
 	led_counter++	;
-	if (led_counter >= top_led)
-	{
+	if (led_counter >= led_pulse_period) {
 		led_counter = 0	;
-	}
-	else
-	{
-		if (led_counter < (TIM0_FREQENCY/2))
-		{
+	} else {
+		if (led_counter < led_pulse_duration) {
 			out_flag = 0xFF	;
-		}
-		else
-		{
+		} else {
 			out_flag = 0	;
 		}
 	}

@@ -38,6 +38,8 @@ typedef struct
 #define OCR2_register							((F_CPU/TIM2_PRESCALER)/TIM2_FREQENCY) - 1
 #define TEN_SECONDS_TOP							TIM0_FREQENCY*10
 #define ONE_SECOND_TOP							TIM0_FREQENCY
+#define LED_PERIOD_PARTS_MAX_NUMBER				16
+#define LED_PERIOD_PARTS_IN_SECOND				2
 
 unsigned char temp_digits[4]	;
 unsigned int output_high, output_low	;
@@ -46,7 +48,7 @@ unsigned int letters[DEVICES_NUMBER]	;
 unsigned char dev_num, dig_num	;
 volatile unsigned int ten_seconds_counter, one_second_counter, led_counter 	;
 volatile unsigned char ten_sec_flag, one_sec_flag, led_flag, out_flag, in_flag	;
-unsigned int top_led	;
+unsigned int top_led, led_pulse_duration, led_pulse_period	;
 
 void GetDisplayCode(Digit_code * code,unsigned int * temperature, unsigned char sensors_num)	;
 void Init_timers(void)	;

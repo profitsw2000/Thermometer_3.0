@@ -290,27 +290,35 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
  //проверка количества оставшейся памяти во внешней eeprom
  //если свободной памяти остаётся меньше четверти от общего количества, 
  //то происходит моргание светодиода, чем меньше памяти, тем чаще моргание
- void Check_memory_space(unsigned int *top_led)
+ void Check_memory_space(uint16_t *led_pulse_duration, uint16_t *led_pulse_period)
  {
 	 uint8_t data[4]	;
 	 uint32_t address	;
-	 uint32_t period	;
+	 uint32_t period, duration	;	 
 	 
 	 Read_reserved_string_mega_eeprom(2, data, 4)	;
 	 Convert4_to_1(data, &address)	;
+	 	 
+	 if (address < MEMORY_PART_SIZE) duration = 0	;
+	 else duration = TIM0_FREQENCY/LED_PERIOD_PARTS_IN_SECOND	;
+	 
+	 period = (LED_PERIOD_PARTS_MAX_NUMBER - address/MEMORY_PART_SIZE)*TIM0_FREQENCY	;
+	 
+	 *led_pulse_period = period	;
+	 *led_pulse_duration = duration	;
 
-	 if (address > 0x3000)
-	 {
-		 address = address - 0x3000	;
-		 period = address/0x200	;
-		 period = 8 - period	;
-		 period = period*TIM0_FREQENCY	;
-		 *top_led = period	;
-	 } 
-	 else
-	 {
-		 *top_led = 0	;
-	 }
+	 //if (address > 0x3000)
+	 //{
+		 //address = address - 0x3000	;
+		 //period = address/0x200	;
+		 //period = 8 - period	;
+		 //period = period*TIM0_FREQENCY	;
+		 //*top_led = period	;
+	 //} 
+	 //else
+	 //{
+		 //*top_led = 0	;
+	 //}
  }
  
  //получить код символа для отображения на 16-сегментном индикаторе

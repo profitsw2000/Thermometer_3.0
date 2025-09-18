@@ -19,7 +19,7 @@
 #include <avr/interrupt.h>
 
 //размер буфера
-#define SIZE_BUF	128
+#define SIZE_BUF	64
 
 
 void USART_Init(unsigned int baudrate); //инициализация usart`a

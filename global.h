@@ -47,7 +47,9 @@
 #define LETTER_CODE_SIZE 2
 #define SENSOR_INFO_SIZE (SENSOR_ID_SIZE + LETTER_CODE_SIZE + TEMPERATURE_VALUE_SIZE)
 
-#define BRIGHTNESS_ARRAY_SIZE 16
+#define BRIGHTNESS_ARRAY_SIZE		16
+#define TOTAL_MEMORY_SIZE			0x20000
+#define MEMORY_PART_SIZE			0x2000
 
 //прототипы функций
 void Init_peripheral(void)	;
@@ -59,7 +61,7 @@ void ID_Registration(unsigned char sensors_num, unsigned char crcFlag, uint8_t *
 void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)	;
 void Convert4_to_1(uint8_t *data, uint32_t *dword)	;
 void Convert1_to_4(uint8_t *data, uint32_t *dword)	;
-void Check_memory_space(uint16_t *top_led)	;
+void Check_memory_space(uint16_t *led_pulse_duration, uint16_t *led_pulse_period)	;
 void GetLetter(unsigned int * letter, uint8_t * local_id, unsigned char sensors_num)	;
 void WriteTemperatureTime(uint8_t *local_id, uint8_t sensors_num, unsigned int *temperature, uint8_t *flag)	;
 void SendTime(uint8_t SizePkt, uint8_t command)	;

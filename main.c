@@ -69,6 +69,8 @@ int main(void)
 	one_second_counter = 0	;
 	led_counter = 0	;
 	top_led = 0	;
+	led_pulse_duration = 0 ;
+	led_pulse_period = TIM0_FREQENCY*(LED_PERIOD_PARTS_MAX_NUMBER/LED_PERIOD_PARTS_IN_SECOND)	;
 	ten_sec_flag = 0xFF	;
 	one_sec_flag = 0xFF	;
 	led_flag = 0	;
@@ -122,7 +124,7 @@ int main(void)
 			WriteTemperatureTime(local_id, sensors_num, temperature, &writetime_flag)	;
 			
 			//проверка занятого количества памяти во внешней eeprom
-			Check_memory_space(&top_led)	;
+			Check_memory_space(&led_pulse_duration, &led_pulse_period)	;
 		}
 
 		if (one_sec_flag)
