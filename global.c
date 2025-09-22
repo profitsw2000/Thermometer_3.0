@@ -299,10 +299,14 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 Read_reserved_string_mega_eeprom(2, data, 4)	;
 	 Convert4_to_1(data, &address)	;
 	 	 
-	 if (address < MEMORY_PART_SIZE) duration = 0	;
-	 else duration = TIM0_FREQENCY/LED_PERIOD_PARTS_IN_SECOND	;
-	 
-	 period = (LED_PERIOD_PARTS_MAX_NUMBER - address/MEMORY_PART_SIZE)*TIM0_FREQENCY	;
+	 if (address < MEMORY_INDICATION_TRESHOLD) {
+		 duration = 0	;
+		 period = MEMORY_INDICATION_FREQ_NUMBER*(TIM0_FREQENCY/LED_LIGHTNING_COEF)	;
+	 }
+	 else {
+		 duration = TIM0_FREQENCY/LED_LIGHTNING_COEF	;
+		 period = (MEMORY_INDICATION_FREQ_NUMBER - (address - MEMORY_INDICATION_TRESHOLD)/MEMORY_PART_SIZE)*(TIM0_FREQENCY/LED_LIGHTNING_COEF)	;
+	 }
 	 
 	 *led_pulse_period = period	;
 	 *led_pulse_duration = duration	;
