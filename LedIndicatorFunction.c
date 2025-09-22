@@ -250,7 +250,7 @@ void Change_digit(unsigned char sensors_num)
 		one_second_counter = 0	;
 	}
 	
-	//моргание светодиодом при критическом заполнении памяти и индикация включении кнопки.
+	//моргание светодиодом при критическом заполнении памяти и индикация включения кнопки.
 	led_counter++	;
 	if (led_counter >= led_pulse_period) {
 		led_counter = 0	;

@@ -290,6 +290,11 @@ void RS_Decode(uint8_t *data, uint8_t comand, uint8_t SizePkt)
 			SendSensorInfo(data, sensors_num, temperature, local_id, allDevices)	;
 		break;
 		
+		//Очистить внешнюю память термометра и установить её текущий адрес на 0
+		case 0x0D:
+			ClearThermometerExtMemory()	;
+		break;
+		
 		default:
 		break;
 	}

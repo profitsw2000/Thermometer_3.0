@@ -288,8 +288,16 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
  }
  
  //проверка количества оставшейся памяти во внешней eeprom
- //если свободной памяти остаётся меньше четверти от общего количества, 
- //то происходит моргание светодиода, чем меньше памяти, тем чаще моргание
+ //если свободной памяти остаётся меньше половины от общего количества, 
+ //то происходит моргание светодиода, чем меньше памяти, тем чаще моргание.
+ //Логика определения длительности свечения диода и периода моргания следующий:
+ //если текущий адрес(а значит и заполнение памяти) меньше значения MEMORY_INDICATION_TRESHOLD,
+ //то светодиод вообще не загорается. Если текущий адрес превысил значение MEMORY_INDICATION_TRESHOLD,
+ //то светодиод загорается на время TIM0_FREQENCY/LED_LIGHTNING_COEF (в количествах срабатывания таймера 0),
+ //т.е. на 1/LED_LIGHTNING_COEF секунды. Время же паузы зависит от заполнения оставшейся памяти и определяется
+ //следующим образом: оставшаяся память делится на MEMORY_INDICATION_FREQ_NUMBER секторов. 
+ //Вычисляется количество незаполненных секторов (и +1) и умножается на TIM0_FREQENCY/LED_LIGHTNING_COEF.
+ //Получится время паузы между подачей питания на светодиод в количествах срабатывания таймера 0.
  void Check_memory_space(uint16_t *led_pulse_duration, uint16_t *led_pulse_period)
  {
 	 uint8_t data[4]	;
@@ -305,7 +313,7 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 }
 	 else {
 		 duration = TIM0_FREQENCY/LED_LIGHTNING_COEF	;
-		 period = (MEMORY_INDICATION_FREQ_NUMBER - (address - MEMORY_INDICATION_TRESHOLD)/MEMORY_PART_SIZE)*(TIM0_FREQENCY/LED_LIGHTNING_COEF)	;
+		 period = (MEMORY_INDICATION_FREQ_NUMBER + 1 - (address - MEMORY_INDICATION_TRESHOLD)/MEMORY_PART_SIZE)*(TIM0_FREQENCY/LED_LIGHTNING_COEF)	;
 	 }
 	 
 	 *led_pulse_period = period	;
@@ -1045,4 +1053,36 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 output_buf[5] = summa	;
 	 
 	 USART_SendArray(output_buf, 6)	;
+ }
+ 
+ //Очистить внешнюю память термометра и установить её текущий адрес на 0
+ //формат принимаемого пакета данных:
+ // |S|...|Pkt_Size|...|Pkt_number|...|Summ|
+ // |S| = 0x53 - стартовый байт; 
+ // |Pkt_Size| - общее количество байт в пакете; 
+ // |Pkt_number| = 0x0D - идентификационный номер пакета;
+ // |Summ| - контрольная сумма.
+ //формат отправляемого пакета данных:
+ // |S|...|Pkt_Size|...|Pkt_number|...|Result|...|Summ|
+ // |S|, |Pkt_Size|, |Pkt_number|, |Summ| - то же, что и в принимаемом;
+ // Result = 0xFF - сигнализирует об успешном завершении операции.
+ void ClearThermometerExtMemory() {
+	 
+	 uint8_t output_buf[5]	;
+	 uint8_t summa = 0	;
+	 uint8_t *data = 0	;
+	 
+	 EEPROM_chip_erase()	;
+	 Write_reserved_string_mega_eeprom(2, data, 4)	;
+	 
+	 output_buf[0] = 0x53	;
+	 output_buf[1] = 0x04	;
+	 summa = 0x04	;
+	 output_buf[2] = 0x0D	;
+	 summa += output_buf[2]	;
+	 output_buf[3] = 0xFF	;
+	 summa += output_buf[3]	;
+	 output_buf[4] = summa	;
+	 
+	 USART_SendArray(output_buf, 5)	;
  }

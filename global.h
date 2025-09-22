@@ -82,5 +82,6 @@ void WriteLetterCodeToMemory(uint8_t *data, uint8_t * local_id)	;
 void SendSensorsTemperature(unsigned char sensors_num, unsigned int *temperature, uint8_t *local_id, OWI_device *allDevices)	;
 void SendSensorInfo(uint8_t *data, unsigned char sensors_num, unsigned int * temperature, uint8_t * local_id, OWI_device * allDevices)	;
 void SendBrightnessValue(uint8_t brightness_l, uint8_t brightness_h)	;
+void ClearThermometerExtMemory()	;
 
 #endif //GLOBAL_H
