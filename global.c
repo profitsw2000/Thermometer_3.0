@@ -302,7 +302,7 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
  {
 	 uint8_t data[4]	;
 	 uint32_t address	;
-	 uint32_t period, duration	;	 
+	 uint32_t period, duration, temp = 0, temp1 = 0, temp2 = 0	;	 
 	 
 	 Read_reserved_string_mega_eeprom(2, data, 4)	;
 	 Convert4_to_1(data, &address)	;
@@ -313,24 +313,14 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 }
 	 else {
 		 duration = TIM0_FREQENCY/LED_LIGHTNING_COEF	;
-		 period = (MEMORY_INDICATION_FREQ_NUMBER + 1 - (address - MEMORY_INDICATION_TRESHOLD)/MEMORY_PART_SIZE)*(TIM0_FREQENCY/LED_LIGHTNING_COEF)	;
+		 temp = (address - MEMORY_INDICATION_TRESHOLD);
+		 temp1 = MEMORY_PART_SIZE;
+		 temp2 = temp/temp1;
+		 period = (MEMORY_INDICATION_FREQ_NUMBER + 1 - temp2)*(TIM0_FREQENCY/LED_LIGHTNING_COEF)	;
 	 }
 	 
 	 *led_pulse_period = period	;
 	 *led_pulse_duration = duration	;
-
-	 //if (address > 0x3000)
-	 //{
-		 //address = address - 0x3000	;
-		 //period = address/0x200	;
-		 //period = 8 - period	;
-		 //period = period*TIM0_FREQENCY	;
-		 //*top_led = period	;
-	 //} 
-	 //else
-	 //{
-		 //*top_led = 0	;
-	 //}
  }
  
  //получить код символа для отображения на 16-сегментном индикаторе
@@ -1070,7 +1060,7 @@ void Brightness_measure(uint8_t *brightness_l, uint8_t *brightness_h)
 	 
 	 uint8_t output_buf[5]	;
 	 uint8_t summa = 0	;
-	 uint8_t *data = 0	;
+	 uint8_t data[4] = { 0, 0, 0, 0 }	;
 	 
 	 EEPROM_chip_erase()	;
 	 Write_reserved_string_mega_eeprom(2, data, 4)	;
